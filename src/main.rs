@@ -51,7 +51,7 @@ impl PasswordManager<Unlocked> {
         }
     }
 
-    pub fn list_passwords(&self) -> &Vec<PasswordManagerEntry> {
+    pub fn list_entries(&self) -> &Vec<PasswordManagerEntry> {
         &self.entries
     }
 
@@ -126,7 +126,7 @@ fn main() {
                         "h" => println!("help"),
                         "la" => {
                             println!("listing passwords...");
-                            let entries = unlocked_manager.list_passwords();
+                            let entries = unlocked_manager.list_entries();
                             
                             for entry in entries {
                                 println!("name: {} | username: {} | password {}", entry.name, entry.username, entry.password);
@@ -176,9 +176,14 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use std::result;
+    use crate::{PasswordManager, Unlocked, PasswordManagerEntry};
 
-    use crate::PasswordManager;
+    fn create_unlocked_password_manager() -> PasswordManager<Unlocked> {
+        let manager = PasswordManager::new("correct_password".to_owned());
+        let result = manager.unlock(&"correct_password".to_string()).unwrap();
+
+        result
+    }
 
     #[test]
     fn test_unlock_invalid_password() {
@@ -208,4 +213,38 @@ mod tests {
             None => { assert!(false) }
         }
     }
+
+    #[test]
+    fn test_list_entries() {
+        let mut unlocked_manager = create_unlocked_password_manager(); 
+
+        let entries = unlocked_manager.list_entries();
+
+        assert_eq!(entries.len(), 0);
+    }
+
+    #[test]
+    fn test_add_entry() {
+        let mut unlocked_manager = create_unlocked_password_manager();
+
+        let password_manager_entry = PasswordManagerEntry {
+            name: String::from("test_name"),
+            username: String::from("test_username"),
+            password: String::from("test_password"), 
+        };
+
+        
+        unlocked_manager.add_entry(password_manager_entry);
+
+        let entries = unlocked_manager.list_entries();
+
+        assert_eq!(entries.len(), 1);
+        
+        let entry = entries.get(0).unwrap();
+
+        assert_eq!(entry.name, "test_name");
+        assert_eq!(entry.username, "test_username");
+        assert_eq!(entry.password, "test_password");
+    }
+
 }
