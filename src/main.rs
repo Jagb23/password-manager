@@ -79,7 +79,7 @@ impl PasswordManager<Unlocked> {
 }
 
 impl<State> PasswordManager<State> {
-    pub fn is_master_password(&self, master_pass: &String) -> bool {
+    fn is_master_password(&self, master_pass: &String) -> bool {
         return argon2::verify_encoded(&self.master_pass_hash, master_pass.as_bytes()).unwrap();
     }
 }
