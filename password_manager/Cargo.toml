@@ -1,9 +1,10 @@
 [package]
-name = "password-manager"
+name = "password_manager"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-password_manager = { path = "password_manager"}
+rand="0.8.5"
+rust-argon2 = "1.0"

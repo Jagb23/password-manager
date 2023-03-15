@@ -79,6 +79,13 @@ checksum = "201de327520df007757c1f0adce6e827fe8562fbc28bfd9c15571c66ca1f5f79"
 name = "password-manager"
 version = "0.1.0"
 dependencies = [
+ "password_manager",
+]
+
+[[package]]
+name = "password_manager"
+version = "0.1.0"
+dependencies = [
  "rand",
  "rust-argon2",
 ]
