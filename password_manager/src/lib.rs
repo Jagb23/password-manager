@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use std::clone;
 use std::io::stdin;
 use std::ptr::null;
 use std::{collections::HashMap};
@@ -7,24 +8,32 @@ use std::marker::PhantomData;
 use argon2::{self, Config};
 use rand::{Rng, thread_rng};
 use std::num::ParseIntError;
+use rusqlite::{Connection, Result};
+use rusqlite::NO_PARAMS;
 
 
-pub struct Locked;
-pub struct Unlocked;
-
+#[derive(Clone, PartialEq)]
 pub struct PasswordManagerEntry {
     name: String,
     username: String,
     password: String,
 }
 
-// PasswordManager<Locked> != PasswordManager<Unlocked>
-pub struct PasswordManager<State = Locked> {
+// PasswordManager<Locked> != PasswordManager<Unlocked
+#[derive(Clone, PartialEq)]
+pub struct PasswordManager<State: ManagerState> {
     master_pass_hash: String,
     entries: Vec<PasswordManagerEntry>,
     state: PhantomData<State>,
     salt: [u8;32],
 }
+
+pub enum Locked {}
+pub enum Unlocked {}
+
+pub trait ManagerState {}
+impl ManagerState for Locked {}
+impl ManagerState for Unlocked {}
 
 impl PasswordManager<Locked> {
     pub fn unlock(self, master_pass: &String) -> Option<PasswordManager<Unlocked>> {
@@ -38,6 +47,19 @@ impl PasswordManager<Locked> {
             state: PhantomData,
             salt: self.salt,
         })
+    }
+
+    pub fn new(master_pass: String) -> Self {
+        let config = Config::default();
+        let salt = thread_rng().gen::<[u8;32]>();
+        let master_pass_hash = argon2::hash_encoded(master_pass.as_bytes(), &salt, &config).unwrap();
+
+        PasswordManager {
+            master_pass_hash,
+            entries: Default::default(),
+            state: PhantomData,
+            salt,
+        }
     }
 }
 
@@ -78,24 +100,14 @@ impl PasswordManager<Unlocked> {
     }
 }
 
-impl<State> PasswordManager<State> {
+impl<State: ManagerState> PasswordManager<State> {
     fn is_master_password(&self, master_pass: &String) -> bool {
         return argon2::verify_encoded(&self.master_pass_hash, master_pass.as_bytes()).unwrap();
     }
-}
 
-impl PasswordManager {
-    pub fn new(master_pass: String) -> Self {
-        let config = Config::default();
-        let salt = thread_rng().gen::<[u8;32]>();
-        let master_pass_hash = argon2::hash_encoded(master_pass.as_bytes(), &salt, &config).unwrap();
-
-        PasswordManager {
-            master_pass_hash,
-            entries: Default::default(),
-            state: PhantomData,
-            salt,
-        }
+    fn get_database_connection(&self) -> Connection {
+        // TODO: This could be safer
+        Connection::open(self.master_pass_hash.clone() + ".db").unwrap()
     }
 }
 
@@ -109,8 +121,8 @@ mod tests {
 
     fn create_unlocked_password_manager() -> PasswordManager<Unlocked> {
         let manager = PasswordManager::new("correct_password".to_owned());
-        let result = manager.unlock(&"correct_password".to_string()).unwrap();
-
+        let result: PasswordManager<Unlocked> = manager.unlock(&"correct_password".to_string()).unwrap();
+        
         result
     }
 

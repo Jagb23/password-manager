@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 rand="0.8.5"
 rust-argon2 = "1.0"
+rusqlite = "0.28.0"
