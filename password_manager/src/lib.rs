@@ -15,12 +15,12 @@ use database::{PasswordManagerEntry, Database, User};
 pub struct PasswordManager<State: ManagerState> {
     username: String,
     master_pass_hash: String,
-    entries: Vec<PasswordManagerEntry>,
     state: PhantomData<State>,
     database: Database,
 }
 
 pub enum Locked {}
+
 pub enum Unlocked {}
 
 pub trait ManagerState {}
@@ -33,14 +33,13 @@ impl PasswordManager<Locked> {
             return None
         }
 
-        let user = self.database.get_user(username).unwrap();
+        let user = Database::get_user(username).unwrap();
 
         Some(PasswordManager {
             username: user.username,
             master_pass_hash: user.pw_hash,
-            entries: Vec::new(),
             state: PhantomData,
-            database: self.database
+            database: Database{},
         })
     }
 }
@@ -51,35 +50,35 @@ impl PasswordManager<Unlocked> {
         PasswordManager {
             username: String::new(),
             master_pass_hash: String::new(),
-            entries: Vec::new(),
             state: PhantomData,
-            database: self.database,
+            database: Database{},
         }
     }
 
-    pub fn list_entries(&self) -> &Vec<PasswordManagerEntry> {
-        &self.entries
-    }
+    // pub fn list_entries(&self) -> &Vec<PasswordManagerEntry> {
+    //     &self.entries
+    // }
 
-    pub fn add_entry(&mut self, password_manager_entry: PasswordManagerEntry) {
-        self.entries.push(password_manager_entry);
-    }
+    // pub fn add_entry(&mut self, password_manager_entry: PasswordManagerEntry) {
+    //     self.entries.push(password_manager_entry);
+    // }
 
     pub fn reset_master_password(self, current_password: &String, new_master_password: &String) -> Option<PasswordManager<Unlocked>> {
-        if !self.is_master_password(&self.username, current_password) {
+        let username_clone = self.username.clone();
+
+        if !self.is_master_password(&username_clone, current_password) {
             return None
         }
 
-        self.database.update_user_password(&self.username, &new_master_password);
+        Database::update_user_password(&username_clone, &new_master_password);
 
-        let user = self.database.get_user(&self.username).unwrap();
+        let user = Database::get_user(&username_clone).unwrap();
 
         Some(PasswordManager {
-            username: self.username,
+            username: username_clone,
             master_pass_hash: user.pw_hash, // update the password hash
-            entries: self.entries,
             state: PhantomData,
-            database: self.database,
+            database: Database{},
         })
     }
 
@@ -87,28 +86,10 @@ impl PasswordManager<Unlocked> {
 
 impl<State: ManagerState> PasswordManager<State> {
 
-    // pub fn new(username: &String, master_pass: &String) -> Self {
-    //     let config = Config::default();
-    //     let salt = thread_rng().gen::<[u8;32]>();
-    //     let master_pass_hash = argon2::hash_encoded(master_pass.as_bytes(), &salt, &config).unwrap();
-    //     let database = Database::new();
-
-    //     let pm = PasswordManager {
-    //         master_pass_hash,
-    //         entries: Default::default(),
-    //         state: PhantomData,
-    //         salt,
-    //         database,
-    //     };
-
-    //     pm
-    // }
-
     pub fn new() -> Self {
         PasswordManager { 
             username: String::new(),
             master_pass_hash: String::new(),
-            entries: Vec::new(),
             state: PhantomData,
             database: Database::new(), 
         }
@@ -117,7 +98,7 @@ impl<State: ManagerState> PasswordManager<State> {
     fn is_master_password(self, username: &String, master_pass: &String) -> bool {
 
         // let user = user_db.get_user(username).unwrap();
-        let user = self.database.get_user(username).unwrap();
+        let user = Database::get_user(username).unwrap();
         
         return argon2::verify_encoded(&user.pw_hash, master_pass.as_bytes()).unwrap();
     }

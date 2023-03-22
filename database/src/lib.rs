@@ -11,10 +11,8 @@ pub struct User {
     pub pw_hash: String,
     pub salt: [u8; 32] // stored as a String of text in the database
 }
-#[derive(Debug, Clone)]
-pub struct Database { 
-    connection: Connection,
-}
+#[derive(Debug, Clone, Copy)]
+pub struct Database { }
 
 #[derive(Debug, Clone)]
 pub struct PasswordManagerEntry {
@@ -58,7 +56,7 @@ impl Database {
             Err(e) => println!("{:?}", e),
         }
              
-        Database { connection }
+        Database { }
     }
     
     pub fn get_database_connection() -> Result<Connection> {
@@ -67,7 +65,7 @@ impl Database {
     }
     
     pub fn add_user(self, username: &String, password: &String) -> Result<()> {        
-        let (pw_hash, salt) = self.create_password_hash(password);
+        let (pw_hash, salt) = Self::create_password_hash(password);
 
         let connection = Self::get_database_connection().unwrap();
         let mut statement = connection.prepare("INSERT INTO users (username, pw_hash, salt) VALUES (?, ?)")?;
@@ -83,8 +81,8 @@ impl Database {
         Ok(())
     }
 
-    pub fn update_user_password (self, username: &String, password: &String) -> Result<()> {
-        let (pw_hash, salt) = self.create_password_hash(password);
+    pub fn update_user_password (username: &String, password: &String) -> Result<()> {
+        let (pw_hash, salt) = Self::create_password_hash(password);
 
         let connection = Self::get_database_connection().unwrap();
         let mut statement = connection.prepare("UPDATE users SET pw_hash = ?, salt = ? WHERE username = ?")?;
@@ -93,7 +91,7 @@ impl Database {
         Ok(())
     }
     
-    pub fn get_user(self, username: &str) -> Result<User, rusqlite::Error> {
+    pub fn get_user(username: &str) -> Result<User, rusqlite::Error> {
         let connection = Self::get_database_connection().unwrap();
         let mut statement = connection.prepare("SELECT * FROM users WHERE username = ?")?;
         let mut results = statement.query(rusqlite::params![username])?;
@@ -126,7 +124,7 @@ impl Database {
         Ok(())
     }
     
-    pub fn create_password_hash(self, password: &String) -> (String, String) {
+    pub fn create_password_hash(password: &String) -> (String, String) {
         let config = Config::default();
         let salt = &thread_rng().gen::<[u8;32]>();
         let pw_hash = argon2::hash_encoded(password.as_bytes(), salt, &config).unwrap();
