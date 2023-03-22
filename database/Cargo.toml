@@ -1,10 +1,11 @@
 [package]
-name = "password_manager"
+name = "database"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rusqlite = "0.28.0"
 rust-argon2 = "1.0"
-database = { path = "../database"}
+rand="0.8.5"

@@ -76,6 +76,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "database"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "rusqlite",
+ "rust-argon2",
+]
+
+[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -149,8 +158,7 @@ dependencies = [
 name = "password_manager"
 version = "0.1.0"
 dependencies = [
- "rand",
- "rusqlite",
+ "database",
  "rust-argon2",
 ]
 
