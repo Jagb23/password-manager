@@ -21,6 +21,16 @@ pub struct PasswordManagerEntry {
     password: String,
 }
 
+impl PasswordManagerEntry {
+    pub fn new(name: &String, username: &String, password: &String) -> Self {
+        PasswordManagerEntry {
+            name: name.to_string(),
+            username: username.to_string(),
+            password: password.to_string(),
+        }
+    }
+}
+
 
 impl Database {
     pub fn new() -> Self {
@@ -64,7 +74,7 @@ impl Database {
         Ok(conn)
     }
     
-    pub fn add_user(self, username: &String, password: &String) -> Result<()> {        
+    pub fn add_user(username: &String, password: &String) -> Result<()> {        
         let (pw_hash, salt) = Self::create_password_hash(password);
 
         let connection = Self::get_database_connection().unwrap();
@@ -110,7 +120,7 @@ impl Database {
        }
     }
 
-    pub fn add_password_entry(self, entry: PasswordManagerEntry) -> Result<()> {
+    pub fn add_password_entry(entry: PasswordManagerEntry) -> Result<()> {
         let connection = Self::get_database_connection().unwrap();
         let mut statement = connection.prepare("INSERT INTO passwords (name, username, password) VALUES (?, ?, ?)")?;
         statement.execute(&[&entry.name, &entry.username, &entry.password])?;
@@ -130,6 +140,23 @@ impl Database {
         let pw_hash = argon2::hash_encoded(password.as_bytes(), salt, &config).unwrap();
         let salt = from_utf8(salt).unwrap();
         (pw_hash, salt.to_string())
+    }
+
+    pub fn get_password_entries_for_user(username: &String) -> Result<Vec<PasswordManagerEntry>, rusqlite::Error> {
+        let connection = Self::get_database_connection().unwrap();
+        let mut statement = connection.prepare("SELECT * FROM passwords WHERE username = ?")?;
+        let mut results = statement.query(rusqlite::params![username])?;
+        
+        let mut entries = Vec::new();
+        while let Some(row) = results.next().unwrap() {
+            let entry = PasswordManagerEntry {
+                name: row.get(1)?,
+                username: row.get(2)?,
+                password: row.get(3)?,
+            };
+            entries.push(entry);
+        }
+        Ok(entries)
     }
 
 }

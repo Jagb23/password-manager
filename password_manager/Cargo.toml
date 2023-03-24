@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 rust-argon2 = "1.0"
-database = { path = "../database"}
+rusqlite = "0.28.0"
+rand="0.8.5"
