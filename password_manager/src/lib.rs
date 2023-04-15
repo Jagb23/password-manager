@@ -13,6 +13,7 @@ use std::num::ParseIntError;
 use argon2::{self, Config};
 use database::{Database, PasswordManagerEntry};
 use error::Error;
+use log::{info, debug, error};
 
 
 // use crate::database::{PasswordManagerEntry, Database, User};
@@ -41,6 +42,7 @@ pub struct PasswordManager<State: ManagerState> {
     username: String,
     master_pass_hash: String,
     state: PhantomData<State>,
+    database: Database,
 }
 
 pub enum Locked {}
@@ -52,30 +54,45 @@ impl ManagerState for Locked {}
 impl ManagerState for Unlocked {}
 
 impl PasswordManager<Locked> {
-    pub fn unlock(self, username: &String, master_pass: &String) -> Option<PasswordManager<Unlocked>> {
+    pub fn unlock(&mut self, username: &String, master_pass: &String) -> Option<PasswordManager<Unlocked>> {
         if !self.is_master_password(username, master_pass) {
             return None
         }
 
-        let user = Database::get_user(username).unwrap();
+        let user = self.database.get_user(username).unwrap();
 
         Some(PasswordManager {
             username: user.username,
             master_pass_hash: user.pw_hash,
             state: PhantomData,
+            database: self.database.clone(),
         })
     }
 
-    pub fn new_user(self, username: &String, master_pass: &String) -> Result<PasswordManager<Unlocked>, Error> {
-        Database::add_user(username, master_pass);
+    pub fn new_user(&mut self, username: &String, master_pass: &String) -> Result<PasswordManager<Unlocked>, Error> {
+        match self.database.add_user(username, master_pass) {
+            Ok(_) => print!("User {} created", username),
+            Err(e) => {
+                error!("{:?}", e);
+                // TODO: handle error/return early
+            }
+        }
 
+        info!("Created new user: {}", username);
         // TODO: move hash generation here
-        let user = Database::get_user(username).unwrap();
+        let user = match self.database.get_user(username) {
+            Ok(user) => user,
+            Err(e) => {
+                error!("{:?}", e);
+                panic!("Failed to retrieve user from database");
+            }
+        };
 
         Ok(PasswordManager {
             username: username.clone(),
             master_pass_hash: user.pw_hash,
             state: PhantomData,
+            database: self.database.clone(),
         })
     }
 }
@@ -87,51 +104,55 @@ impl PasswordManager<Unlocked> {
             username: String::new(),
             master_pass_hash: String::new(),
             state: PhantomData,
+            database: self.database,
         }
     }
 
-    pub fn list_entries(self) -> (PasswordManager<Unlocked>, Vec<PasswordManagerEntry>) {
-        let entries = Database::get_password_entries_for_user(&self.username).unwrap();
+    pub fn list_entries(&mut self) -> (PasswordManager<Unlocked>, Vec<PasswordManagerEntry>) {
+        let entries = self.database.get_password_entries_for_user(&self.username).unwrap();
         (
             PasswordManager { 
-                username:self.username, 
-                master_pass_hash: self.master_pass_hash, 
-                state: PhantomData, 
+                username:self.username.clone(), 
+                master_pass_hash: self.master_pass_hash.clone(), 
+                state: PhantomData,
+                database: self.database.clone(),
             },
             entries
         )
     }
 
-    pub fn add_entry(self, password_manager_entry: &Entry) -> Result<PasswordManager<Unlocked>, Error> {
+    pub fn add_entry(&mut self, password_manager_entry: &Entry) -> Result<PasswordManager<Unlocked>, Error> {
         let entry = PasswordManagerEntry::new(
             &password_manager_entry.name,
             &password_manager_entry.username,
             &password_manager_entry.password
         ); 
 
-        Database::add_password_entry(entry);
+        self.database.add_password_entry(entry);
         Ok(PasswordManager { 
-            username:self.username, 
-            master_pass_hash: self.master_pass_hash, 
-            state: PhantomData, 
+            username:self.username.clone(), 
+            master_pass_hash: self.master_pass_hash.clone(), 
+            state: PhantomData,
+            database: self.database.clone(),
         })
     }
 
-    pub fn reset_master_password(self, current_password: &String, new_master_password: &String) -> Option<PasswordManager<Unlocked>> {
+    pub fn reset_master_password(&mut self, current_password: &String, new_master_password: &String) -> Option<PasswordManager<Unlocked>> {
         let username_clone = self.username.clone();
 
         if !self.is_master_password(&username_clone, current_password) {
             return None
         }
 
-        Database::update_user_password(&username_clone, &new_master_password);
+        self.database.update_user_password(&username_clone, &new_master_password);
 
-        let user = Database::get_user(&username_clone).unwrap();
+        let user = self.database.get_user(&username_clone).unwrap();
 
         Some(PasswordManager {
             username: username_clone,
             master_pass_hash: user.pw_hash, // update the password hash
             state: PhantomData,
+            database: self.database.clone(),
         })
     }
 
@@ -140,19 +161,20 @@ impl PasswordManager<Unlocked> {
 impl<State: ManagerState> PasswordManager<State> {
 
     pub fn new() -> Result<PasswordManager<Locked>, Error> {
-        Database::new();
-        
+        let db = Database::new("password_manager.db".to_owned());
+
         Ok(PasswordManager { 
             username: String::new(),
             master_pass_hash: String::new(),
             state: PhantomData,
+            database: db,
         })
     }
 
-    fn is_master_password(self, username: &String, master_pass: &String) -> bool {
+    fn is_master_password(&mut self, username: &String, master_pass: &String) -> bool {
 
         // let user = user_db.get_user(username).unwrap();
-        let user = Database::get_user(username).unwrap();
+        let user = self.database.get_user(username).unwrap();
         
         return argon2::verify_encoded(&user.pw_hash, master_pass.as_bytes()).unwrap();
     }
