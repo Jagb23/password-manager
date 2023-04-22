@@ -26,16 +26,14 @@ fn main() {
 
     println!("{:?}", entries);
 
-    // let manager = manager.add_entry(
-    //     &Entry::new(
-    //         "test_name".to_owned(), 
-    //         "test_username".to_owned(),
-    //         "test_password".to_owned(),
-    //     )).unwrap();
+    let password_manager_entry = Entry::new(
+        "test_name".to_owned(), 
+        "test_username".to_owned(),
+        "test_password".to_owned(),
+    );
 
-    // let (manager, entries) = manager.list_entries();
+    manager.remove_entry(&password_manager_entry);
 
-    // println!("{:?}", entries);
+    print!("{:?}", entries);
+
 }
-
-// libsqlite3_sys::error::ErrorCode::ConstraintViolation

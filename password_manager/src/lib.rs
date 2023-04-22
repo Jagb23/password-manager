@@ -71,7 +71,7 @@ impl PasswordManager<Locked> {
 
     pub fn new_user(&mut self, username: &String, master_pass: &String) -> Result<PasswordManager<Unlocked>, Error> {
         match self.database.add_user(username, master_pass) {
-            Ok(_) => print!("User {} created", username),
+            Ok(_) => println!("User {} created", username),
             Err(e) => {
                 error!("{:?}", e);
                 // TODO: handle error/return early
@@ -129,6 +129,22 @@ impl PasswordManager<Unlocked> {
         ); 
 
         self.database.add_password_entry(entry);
+        Ok(PasswordManager { 
+            username:self.username.clone(), 
+            master_pass_hash: self.master_pass_hash.clone(), 
+            state: PhantomData,
+            database: self.database.clone(),
+        })
+    }
+
+    pub fn remove_entry(&mut self, password_manager_entry: &Entry) -> Result<PasswordManager<Unlocked>, Error> {
+        let entry = PasswordManagerEntry::new(
+            &password_manager_entry.name,
+            &password_manager_entry.username,
+            &password_manager_entry.password
+        ); 
+
+        self.database.remove_password_entry(entry);
         Ok(PasswordManager { 
             username:self.username.clone(), 
             master_pass_hash: self.master_pass_hash.clone(), 

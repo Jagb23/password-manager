@@ -1,7 +1,7 @@
 use std::str::from_utf8;
 
 use argon2::Config;
-use rusqlite::{Connection, Result, ErrorCode};
+use rusqlite::{Connection, Result, ErrorCode, Statement};
 use rusqlite::Error::{QueryReturnedNoRows, ExecuteReturnedResults};
 use rand::{Rng, thread_rng};
 use log::{info, debug, error};
@@ -192,26 +192,21 @@ impl Database {
 
         let mut entries = Vec::new();
 
-        for row in connection
-            .prepare(query)
-            .unwrap()
-            .map(|row| row.unwrap()) {
-                let entry = PasswordManagerEntry {
-                    name: row.get(1)?,
-                    username: row.get(2)?,
-                    password: row.get(3)?,
-                };
-                entries.push(entry);
-            }
+        let mut statement = connection.prepare(query).unwrap();
 
-        // while let Some(row) = results.next().unwrap() {
-        //     let entry = PasswordManagerEntry {
-        //         name: row.get(1)?,
-        //         username: row.get(2)?,
-        //         password: row.get(3)?,
-        //     };
-        //     entries.push(entry);
-        // }
+        let password_entries = statement.query_map([username], |row| {
+            Ok(PasswordManagerEntry {
+                name: row.get(1)?,
+                username: row.get(2)?,
+                password: row.get(3)?,
+            })
+        })?;
+
+        
+        for password_entry in password_entries {
+            entries.push(password_entry.unwrap());
+        }
+
         Ok(entries)
     }
 
